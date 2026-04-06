@@ -2,10 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MINIMIND_DIR="${ROOT_DIR}/../minimind"
 VENV_DIR="${ROOT_DIR}/.venv"
-MODEL_DIR_DEFAULT="${ROOT_DIR}/models/minimind-3"
-MODEL_DIR="${1:-$MODEL_DIR_DEFAULT}"
+MINIMIND_DIR="${ROOT_DIR}/../minimind"
+MODEL_DIR="${ROOT_DIR}/models/minimind-3"
 HF_HOME_DIR="${ROOT_DIR}/.hf"
 
 required_files=(
@@ -18,25 +17,26 @@ required_files=(
   "chat_template.jinja"
 )
 
-echo "[setup] project: ${ROOT_DIR}"
-echo "[setup] minimind: ${MINIMIND_DIR}"
-echo "[setup] venv: ${VENV_DIR}"
-
 if [[ ! -d "${MINIMIND_DIR}" ]]; then
-  echo "[error] minimind repo not found at ${MINIMIND_DIR}"
+  echo "[error] minimind repo not found: ${MINIMIND_DIR}"
+  echo "[hint] this project expects sibling repositories under the same parent directory."
   exit 1
 fi
 
-python3 -m venv "${VENV_DIR}"
+if [[ ! -d "${VENV_DIR}" ]]; then
+  python3 -m venv "${VENV_DIR}"
+fi
 source "${VENV_DIR}/bin/activate"
 
-echo "[setup] installing micro-local-claude dependencies..."
-pip install -r "${ROOT_DIR}/requirements.txt"
-
-echo "[setup] installing minimind dependencies..."
-# --no-compile avoids bytecode compile failures on restricted environments.
-pip install --no-compile -r "${MINIMIND_DIR}/requirements.txt"
-pip install fastapi uvicorn
+if ! python - <<'PY' >/dev/null 2>&1
+import openai, torch, transformers, fastapi, uvicorn  # noqa: F401
+PY
+then
+  echo "[setup] installing dependencies, this may take a while..."
+  pip install -r "${ROOT_DIR}/requirements.txt"
+  pip install --no-compile -r "${MINIMIND_DIR}/requirements.txt"
+  pip install fastapi uvicorn
+fi
 
 missing=0
 for file in "${required_files[@]}"; do
@@ -55,17 +55,8 @@ from huggingface_hub import snapshot_download
 snapshot_download(repo_id="jingyaogong/minimind-3", local_dir=r"${MODEL_DIR}")
 print("downloaded:", r"${MODEL_DIR}")
 PY
-else
-  echo "[setup] minimind-3 already exists, skip download."
 fi
 
-cat <<EOF
-
-[done] setup complete.
-
-Start interactive mode:
-  source "${VENV_DIR}/bin/activate"
-  python -m micro_local_claude --model-path "${MODEL_DIR}"
-
-EOF
+echo "[run] starting local chat with local minimind-3 model..."
+exec python -m micro_local_claude --model-path "${MODEL_DIR}" "$@"
 

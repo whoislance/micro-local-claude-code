@@ -27,7 +27,7 @@ dist/
 # Local runtime data
 .micro-local-claude/
 .hf/
-minimind-3/
+models/
 
 # Logs
 *.log

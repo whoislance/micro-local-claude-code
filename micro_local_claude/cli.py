@@ -123,7 +123,11 @@ def maybe_start_local_server(args: CliArgs) -> Optional[subprocess.Popen]:
         )
 
     script_path = Path(args.server_script).resolve()
-    model_path = Path(args.model_path).resolve()
+    # Keep symlink path as-is (absolute path only), because resolving symlink may
+    # break MiniMind's load_from branch detection in serve_openai_api.py.
+    model_path = Path(args.model_path).expanduser()
+    if not model_path.is_absolute():
+        model_path = (Path.cwd() / model_path).absolute()
     if not script_path.exists():
         raise RuntimeError(f"Server script not found: {script_path}")
     if not model_path.exists():
@@ -131,13 +135,14 @@ def maybe_start_local_server(args: CliArgs) -> Optional[subprocess.Popen]:
             f"Model path not found: {model_path}\n"
             "Download a MiniMind transformers model first, then pass --model-path /path/to/model."
         )
+    load_from_path = prepare_minimind_load_from_path(model_path)
 
     log_file = resolve_server_log_file(args.server_log_file)
     log_file.parent.mkdir(parents=True, exist_ok=True)
     log_fp = log_file.open("a", encoding="utf-8")
     log_fp.write(
         f"\n[{datetime.now().isoformat()}] starting server "
-        f"load_from={model_path} device={args.device}\n"
+        f"load_from={load_from_path} device={args.device}\n"
     )
     log_fp.flush()
 
@@ -146,7 +151,7 @@ def maybe_start_local_server(args: CliArgs) -> Optional[subprocess.Popen]:
             sys.executable,
             str(script_path),
             "--load_from",
-            str(model_path),
+            str(load_from_path),
             "--device",
             args.device,
         ],
@@ -171,6 +176,22 @@ def maybe_start_local_server(args: CliArgs) -> Optional[subprocess.Popen]:
 
     process.terminate()
     raise RuntimeError(f"MiniMind API server startup timeout (30s). Check log: {log_file}")
+
+
+def prepare_minimind_load_from_path(model_path: Path) -> Path:
+    """Prepare a robust load_from path for MiniMind server."""
+    text = model_path.as_posix().lower()
+    if "model" not in text:
+        return model_path
+
+    # MiniMind's serve_openai_api.py uses string matching on "model" to branch loading logic.
+    # Create a symlink path without "model" in its name to force transformers loading.
+    runtime_link = (Path.cwd() / ".micro-local-claude" / "runtime" / "minimind3").absolute()
+    runtime_link.parent.mkdir(parents=True, exist_ok=True)
+    if runtime_link.exists() or runtime_link.is_symlink():
+        runtime_link.unlink()
+    runtime_link.symlink_to(model_path, target_is_directory=True)
+    return runtime_link
 
 
 def resolve_server_log_file(log_path: Optional[str]) -> Path:
