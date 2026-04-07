@@ -122,7 +122,7 @@ class Agent:
 
     async def _call_openai_stream(self, use_tools: bool) -> Dict[str, Any]:
         def _sync_call() -> Dict[str, Any]:
-            max_tokens = 256 if use_tools else 96
+            max_tokens = 384 if use_tools else 320
             create_kwargs: Dict[str, Any] = {
                 "model": self.model,
                 "max_tokens": max_tokens,
@@ -196,7 +196,7 @@ class Agent:
 
     async def _call_openai_non_stream(self, use_tools: bool) -> Dict[str, Any]:
         def _sync_call() -> Dict[str, Any]:
-            max_tokens = 256 if use_tools else 96
+            max_tokens = 384 if use_tools else 320
             create_kwargs: Dict[str, Any] = {
                 "model": self.model,
                 "max_tokens": max_tokens,

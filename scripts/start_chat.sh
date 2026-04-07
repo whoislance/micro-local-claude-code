@@ -141,4 +141,5 @@ PY
 fi
 
 echo "[run] starting local chat with local minimind-3 model..."
+cd "${ROOT_DIR}"
 exec "${VENV_PYTHON}" -m micro_local_claude --model-path "${MODEL_DIR}" "$@"
