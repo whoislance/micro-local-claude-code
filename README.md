@@ -6,18 +6,18 @@
 - 使用本地小模型（MiniMind）完成端到端对话与工具协作
 - 提供尽可能开箱即用的一键脚本与排错路径
 
----
+***
 
 ## 1. 这个仓库是做什么的
 
 `micro-local-claude-code` 是一个桥接层项目，连接了两类能力：
 
 - `claude-code-from-scratch/python_version`：提供简化版 Agent Loop、工具协议、CLI 交互思路
-- `minimind`：提供本地 64M 模型与 OpenAI 兼容服务（`scripts/serve_openai_api.py`）
+- `minimind`：提供 `minimind-3` 模型与工具调用模板，本仓库内置兼容的本地服务脚本（`scripts/serve_openai_api.py`）
 
 最终效果：你可以在本地终端运行一个“类似 CC CLI”的小型编码助手，不依赖云端模型。
 
----
+***
 
 ## 2. 与两个上游仓库的关系与区别
 
@@ -28,8 +28,8 @@
 
 ### 与 `minimind` 的关系
 
-- 关系：复用其模型与 OpenAI 兼容推理服务
-- 区别：本仓库不做模型训练/评测，专注“CLI Agent 产品层”（交互、工具、稳定性、排错）
+- 关系：复用其公开发布的 `minimind-3` 模型与 chat template / tool call 格式
+- 区别：本仓库不依赖同级 `../minimind` 源码目录，而是在首次启动时把模型下载到本地 `models/minimind-3`，并使用仓库内置服务脚本启动推理接口
 
 ### 本仓库的定位
 
@@ -37,7 +37,7 @@
 - 不是教程仓库（不展开教学文档体系）
 - 是“可跑的本地 Agent CLI 集成仓库”
 
----
+***
 
 ## 3. 功能概览
 
@@ -57,7 +57,7 @@
 - 服务日志自动落盘（便于启动失败排查）
 - 首次运行自动下载 `minimind-3`（后续复用本地缓存，不重复下载）
 
----
+***
 
 ## 4. 如何使用这个仓库
 
@@ -100,8 +100,7 @@ cd micro-local-claude-code
 如果你想自行管理 MiniMind 服务：
 
 ```bash
-cd ../minimind/scripts
-python serve_openai_api.py --load_from ../../micro-local-claude-code/models/minimind-3 --device cpu
+python scripts/serve_openai_api.py --load-from models/minimind-3 --device cpu
 ```
 
 再在本仓库连接：
@@ -110,34 +109,28 @@ python serve_openai_api.py --load_from ../../micro-local-claude-code/models/mini
 python -m micro_local_claude --no-auto-start-server --api-base http://127.0.0.1:8998/v1
 ```
 
----
+***
 
 ## 5. 如何阅读这个仓库
 
 建议按下面顺序阅读，最快建立完整心智模型：
 
-1. `README.md`  
+1. `README.md`\
    先理解目标、启动方式、排错路径
-
-2. `micro_local_claude/cli.py`  
+2. `micro_local_claude/cli.py`\
    看 CLI 参数、自动拉服务、REPL 循环、代理处理
-
-3. `micro_local_claude/agent.py`  
+3. `micro_local_claude/agent.py`\
    看消息循环、工具调用、流式与非流式 fallback
-
-4. `micro_local_claude/tools.py`  
+4. `micro_local_claude/tools.py`\
    看 6 个工具定义与执行实现
-
-5. `micro_local_claude/prompt.py`  
+5. `micro_local_claude/prompt.py`\
    看系统提示词构建逻辑
-
-6. `scripts/start_chat.sh`  
+6. `scripts/start_chat.sh`\
    看“一键开聊”脚本如何做校验、装依赖、启动
-
-7. `scripts/setup_local.sh`  
+7. `scripts/setup_local.sh`\
    看手动初始化脚本
 
----
+***
 
 ## 6. 目录结构
 
@@ -147,6 +140,7 @@ micro-local-claude-code/
 ├── main.py
 ├── requirements.txt
 ├── scripts/
+│   ├── serve_openai_api.py
 │   ├── setup_local.sh
 │   └── start_chat.sh
 ├── models/
@@ -167,21 +161,21 @@ micro-local-claude-code/
     └── tools.py
 ```
 
----
+***
 
 ## 7. 常用参数
 
 - `--model`：发送给 API 的模型名称（默认 `minimind-local`）
 - `--api-base`：OpenAI 兼容 API 地址（默认 `http://127.0.0.1:8998/v1`）
 - `--api-key`：API Key（本地默认 `sk-local`）
-- `--server-script`：MiniMind 服务脚本路径
-- `--model-path`：MiniMind 模型目录
+- `--server-script`：本仓库内置服务脚本路径
+- `--model-path`：本地 `minimind-3` 模型目录
 - `--device`：`cpu` / `cuda` / `mps`
 - `--no-auto-start-server`：禁用自动启动本地服务
 - `--yolo`：跳过危险操作确认
 - `--server-log-file`：指定 MiniMind 服务日志路径
 
----
+***
 
 ## 8. 启动排错
 
@@ -193,12 +187,12 @@ ls .micro-local-claude/logs
 
 常见原因：
 
-- MiniMind 依赖未安装完整（尤其 `torch` / `transformers` / `fastapi` / `uvicorn`）
+- MiniMind 依赖未安装完整（尤其 `torch` / `transformers` / `fastapi` / `uvicorn` / `huggingface_hub`）
 - `--model-path` 不正确，目录缺少 `config.json` 等模型文件
 - 本机 Python 与 torch 组合不兼容
-- 缺少同级 `../minimind` 仓库（本项目复用其 `scripts/serve_openai_api.py`）
+- 首次下载模型中断，导致 `models/minimind-3` 文件不完整
 
----
+***
 
 ## 9. 本次落地踩坑与解决汇总
 
@@ -223,19 +217,25 @@ ls .micro-local-claude/logs
 ### 坑 4：依赖安装中出现 pycache/权限问题
 
 - 现象：`pip` 在受限环境编译字节码时报权限错误
-- 解决：安装 MiniMind 依赖时使用 `--no-compile`
+- 解决：安装 `torch` 时使用 `--no-compile`
 
-### 坑 5：`.venv` 被误纳入 Git
+### 坑 5：不想再维护同级 `../minimind` 仓库
+
+- 现象：启动脚本要求存在额外源码目录，部署路径不够独立
+- 原因：早期实现直接复用了上游仓库的 `scripts/serve_openai_api.py`
+- 解决：改为在本仓库内置兼容服务脚本，并在首次启动时自动下载 `minimind-3`
+
+### 坑 6：`.venv` 被误纳入 Git
 
 - 现象：大量 `.venv` 文件进入暂存区
 - 解决：新增标准 `.gitignore`，并执行 `git rm -r --cached -f .venv` 清理索引（不删本地）
 
----
+***
 
 ## 10. 参考链接
 
 - MiniMind：
-  - [README_en](https://github.com/jingyaogong/minimind/blob/master/README_en.md)
+  - [README\_en](https://github.com/jingyaogong/minimind/blob/master/README_en.md)
   - [HuggingFace Collection](https://huggingface.co/collections/jingyaogong/minimind-66caf8d999f5c7fa64f399e5)
 - Claude Code from Scratch：
-  - [python_version](https://github.com/whoislance/claude-code-from-scratch/tree/main/python_version)
+  - [python\_version](https://github.com/whoislance/claude-code-from-scratch/tree/main/python_version)

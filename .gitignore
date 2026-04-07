@@ -32,3 +32,4 @@ models/
 # Logs
 *.log
 
+.bootstrap/
